@@ -6,9 +6,9 @@ jwt = JWTManager()
 
 def create_app():
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../database.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:PXRVoupiFaCkeKXePPfsnXtWDPSeTGnq@maglev.proxy.rlwy.net:53680/railway"
     app.config['SECRET_KEY'] = 'supersecret'
-    app.config['JWT_SECRET_KEY'] = 'jwt-secret'
+    app.config['JWT_SECRET_KEY'] = 'supersecret'
 
     db.init_app(app)
     jwt.init_app(app)

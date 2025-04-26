@@ -1,11 +1,24 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from ..models import Problem
+from .. import db
 
 bp = Blueprint('problems', __name__, url_prefix='/problems')
 
 @bp.route('/', methods=['GET'])
 def list_problems():
-    problems = Problem.query.all()
+    difficulty = request.args.get('difficulty')
+    topic = request.args.get('topic')
+
+    query = Problem.query
+
+    if difficulty:
+        query = query.filter(Problem.difficulty.ilike(difficulty.lower())) 
+    
+    if topic:
+        query = query.filter(Problem.topic.ilike(f'%{topic}%'))  
+
+    problems = query.all()
+
     return jsonify([{
         'id': p.id,
         'title': p.title,
@@ -21,5 +34,6 @@ def get_problem(pid):
         'title': problem.title,
         'description': problem.description,
         'difficulty': problem.difficulty,
-        'topic': problem.get_topic_list() 
+        'topic': problem.get_topic_list(),
+        'test_cases': problem.get_test_cases() 
     })
