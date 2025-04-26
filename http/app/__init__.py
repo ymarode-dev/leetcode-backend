@@ -1,8 +1,7 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from .db import db
 from flask_jwt_extended import JWTManager
 
-db = SQLAlchemy()
 jwt = JWTManager()
 
 def create_app():

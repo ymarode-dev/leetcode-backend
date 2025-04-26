@@ -9,7 +9,8 @@ def list_problems():
     return jsonify([{
         'id': p.id,
         'title': p.title,
-        'difficulty': p.difficulty
+        'difficulty': p.difficulty,
+        'topic': p.get_topic_list()
     } for p in problems])
 
 @bp.route('/<int:pid>', methods=['GET'])
@@ -19,5 +20,6 @@ def get_problem(pid):
         'id': problem.id,
         'title': problem.title,
         'description': problem.description,
-        'difficulty': problem.difficulty
+        'difficulty': problem.difficulty,
+        'topic': problem.get_topic_list() 
     })
