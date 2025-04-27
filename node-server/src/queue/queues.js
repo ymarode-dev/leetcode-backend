@@ -6,4 +6,6 @@ const queueName = {
     cpp: 'cppQueue'
 };
 
-module.exports = { queueName };
+const responseQueueName = "submission-results";
+
+module.exports = { queueName, responseQueueName };

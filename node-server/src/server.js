@@ -1,13 +1,15 @@
-// src/server.js
 const WebSocket = require('ws');
 const { getChannel } = require('./queue/channel');
-const { queueName } = require('./queue/queues');
+const { queueName, responseQueueName } = require('./queue/queues');
 const { verifyToken } = require('./auth/jwt');
 const logger = require('./utils/logger');
 const { safeJsonParse } = require('./utils/safeJson');
 const { PORT } = require('./config');
+const { updateSubmissionStatus } = require('./db/submissions'); // Add this
 
-const startWebSocketServer = (port = PORT) => {
+const clients = new Map(); // Map to track userId -> websocket connection
+
+const startWebSocketServer = async (port = PORT) => {
     const server = new WebSocket.Server({ port });
 
     server.on('connection', (ws) => {
@@ -19,10 +21,20 @@ const startWebSocketServer = (port = PORT) => {
 
         ws.on('close', () => {
             logger.info('WebSocket client disconnected');
+            // Remove client from map on disconnect
+            for (let [userId, clientWs] of clients.entries()) {
+                if (clientWs === ws) {
+                    clients.delete(userId);
+                    break;
+                }
+            }
         });
     });
 
     logger.info(`WebSocket Server started on port ${port}`);
+
+    // Start consuming results here
+    await consumeSubmissionResults();
 };
 
 const handleIncomingMessage = async (message, ws) => {
@@ -42,9 +54,13 @@ const handleIncomingMessage = async (message, ws) => {
 
     try {
         const decoded = verifyToken(token);
+        const userId = decoded.sub;
+
+        // Store connection
+        clients.set(userId, ws);
 
         if (type === 'submit') {
-            await addSubmissionToQueue(payload, language, decoded.sub);
+            await addSubmissionToQueue(payload, language, userId);
             ws.send(JSON.stringify({ success: 'Submission queued' }));
         } else {
             ws.send(JSON.stringify({ error: 'Invalid request type' }));
@@ -71,6 +87,36 @@ const addSubmissionToQueue = async (payload, submissionLanguage, userId) => {
     );
 
     logger.info(`Submission queued for ${submissionLanguage}`);
+};
+
+// 🚀 New function to consume results and update DB
+const consumeSubmissionResults = async () => {
+    const ch = await getChannel();
+
+    await ch.consume(responseQueueName, async (msg) => {
+        try {
+            const result = JSON.parse(msg.content.toString());
+            const { userId, problemId, status } = result;
+
+            logger.info(`[Server] Received result for user ${userId}: ${status}`);
+
+            // Update the database
+            await updateSubmissionStatus(userId, problemId, status);
+
+            // Send real-time update to client
+            const clientWs = clients.get(userId);
+            if (clientWs && clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({ type: 'submissionResult', status }));
+            }
+
+            ch.ack(msg);
+        } catch (err) {
+            logger.error(`[Server] Error handling submission result: ${err.message}`);
+            ch.nack(msg, false, false); // discard the message
+        }
+    }, { noAck: false });
+
+    logger.info(`[Server] Started consuming submission results`);
 };
 
 module.exports = { startWebSocketServer };

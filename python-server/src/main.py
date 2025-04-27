@@ -4,8 +4,9 @@ from routes import auth, problems, user
 from logger.logger import logger
 from db.database import db, setup_db  
 from db.redis_cache import redis_cache
+from dotenv import load_dotenv
 
-
+load_dotenv()
 app = FastAPI()
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
